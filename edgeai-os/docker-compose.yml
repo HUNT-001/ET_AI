@@ -1,0 +1,34 @@
+version: "3.9"
+
+# Minimum viable data stack (Phase 5). Bring up with: docker compose up -d
+# Add Neo4j / Qdrant / Kafka services here as your build reaches those phases.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: edgeai
+      POSTGRES_PASSWORD: edgeai
+      POSTGRES_DB: edgeai_os
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  # ChromaDB can also just run embedded (in-process) for early development —
+  # this service is only needed once you want it as a standalone server.
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadata:/chroma/chroma
+
+volumes:
+  pgdata:
+  chromadata:
