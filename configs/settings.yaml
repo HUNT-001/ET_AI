@@ -1,0 +1,20 @@
+app:
+  name: EdgeAI-OS
+  env: development
+
+database:
+  postgres_url: "postgresql://edgeai:edgeai@localhost:5432/edgeai_os"
+  redis_url: "redis://localhost:6379/0"
+  neo4j_url: "bolt://localhost:7687"
+
+vector_db:
+  provider: chroma        # chroma | qdrant | milvus
+  persist_dir: "./vector_db/store"
+
+inference:
+  provider: ollama        # ollama | onnxruntime | llamacpp | openvino | tensorrt
+  llm_model: "qwen2.5:3b"
+  embedding_model: "bge-small"
+
+orchestrator:
+  routing_strategy: keyword   # keyword | embedding | planner_agent

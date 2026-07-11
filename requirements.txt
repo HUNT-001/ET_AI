@@ -1,0 +1,33 @@
+# Minimum viable platform (per setup doc's final recommendation).
+# Uncomment/add the rest of Phase 3/4/5/8 packages as you build each layer.
+
+# Backend
+fastapi
+uvicorn[standard]
+pydantic
+
+# Data / ML core
+numpy
+pandas
+scikit-learn
+
+# Local AI runtime
+onnxruntime
+# torch            # uncomment when you add real vision/LLM inference
+# transformers
+# sentence-transformers
+
+# Vector DB
+chromadb
+
+# Databases
+sqlalchemy
+psycopg2-binary   # PostgreSQL driver
+redis
+
+# Knowledge graph (client only — server runs via Docker)
+neo4j
+
+# Dev tooling
+pytest
+httpx             # used by FastAPI's TestClient
