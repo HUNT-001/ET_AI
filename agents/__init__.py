@@ -8,7 +8,7 @@ PRIMARY_AGENTS are the 5 agents named explicitly in the PS8 brief's
 SUPPORTING_AGENTS are internal building blocks the primary agents call.
 """
 
-from agents.base import AgentRequest, AgentResponse, BaseAgent
+from agents.base import AgentRequest, AgentResponse, AgentServices, BaseAgent
 
 from agents.ingestion_agent import IngestionAgent
 from agents.knowledge_agent import KnowledgeAgent
@@ -49,6 +49,6 @@ REGISTRY: list[BaseAgent] = PRIMARY_AGENTS + SUPPORTING_AGENTS
 AGENTS_BY_NAME: dict[str, BaseAgent] = {a.name: a for a in REGISTRY}
 
 __all__ = [
-    "AgentRequest", "AgentResponse", "BaseAgent",
+    "AgentRequest", "AgentResponse", "AgentServices", "BaseAgent",
     "PRIMARY_AGENTS", "SUPPORTING_AGENTS", "REGISTRY", "AGENTS_BY_NAME",
 ]
