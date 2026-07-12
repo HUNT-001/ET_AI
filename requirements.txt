@@ -20,6 +20,11 @@ onnxruntime
 # Vector DB
 chromadb
 
+# Document ingestion pipeline
+pdfplumber        # PDF text extraction
+networkx          # in-memory knowledge graph (swap for Neo4j later)
+reportlab         # only used to generate the sample test PDF
+
 # Databases
 sqlalchemy
 psycopg2-binary   # PostgreSQL driver
