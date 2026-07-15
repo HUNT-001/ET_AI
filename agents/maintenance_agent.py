@@ -26,6 +26,7 @@ from agents.base import AgentRequest, AgentResponse, BaseAgent
 from agents.forecasting_agent import score_degradation
 from agents.monitoring_agent import detect_anomalies
 from agents.reasoning_agent import Passage, reason_via
+from agents.verifier_agent import verify_answer
 from knowledge.store import knowledge_graph, vector_store
 
 _TAG = re.compile(r"\b[A-Z]{1,3}-\d{2,4}[A-Z]?\b")
@@ -114,6 +115,9 @@ class MaintenanceAgent(BaseAgent):
             f"What is the root cause of the issues reported on {tag}, and what maintenance action is recommended?",
             passages,
         )
+        # Supervisor pass: verify the RCA narrative is grounded before it's
+        # surfaced — an unsafe, uncited RCA claim never reaches a technician.
+        rca_verification = verify_answer(rca["answer"], passages)
 
         # 5. Recommendation.
         priority = _priority_for(risk["level"])
@@ -145,6 +149,7 @@ class MaintenanceAgent(BaseAgent):
             "priority": priority,
             "rca_narrative": rca["answer"],
             "citations": rca["citations"],
+            "verification": rca_verification,
             "graph_context": graph_context,
         }
 
