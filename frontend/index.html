@@ -4,24 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>EdgeAI-OS — Operations Console</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
-<script>
-  tailwind.config = {
-    theme: { extend: {
-      colors: {
-        ink:'#0A1626', panel:'#0F2137', panel2:'#132A44', edge:'#1E3A57',
-        teal:'#1C7293', tealbright:'#39A0BD', mist:'#9FB6CE', ice:'#CADCFC',
-        grn:'#2F8F5B', grnbright:'#49C07E', amber:'#D8A23A', danger:'#E8734A'
-      },
-      fontFamily: { sans:['Inter','system-ui','sans-serif'], display:['Fraunces','Georgia','serif'] }
-    }}
-  }
-</script>
+<!-- All assets served locally — zero outbound requests (air-gapped / privacy-first demo) -->
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./vendor/babel.min.js"></script>
+<link href="./vendor/tailwind.css" rel="stylesheet">
 <style>
   html,body{background:#0A1626;}
   ::-webkit-scrollbar{width:9px;height:9px}
@@ -55,7 +42,8 @@ const SAMPLE = {
   ask: { query:"What did the inspection find about P-101A bearing?", routed_to:"knowledge",
     answer:"Vibration readings on P-101A exceeded the baseline threshold by 18%, consistent with early-stage bearing wear. [sample_maintenance_report.pdf p.1] Bearing housing temperature on P-101A reached 71 degrees Celsius, above the 65 degree Celsius normal operating range. [sample_maintenance_report.pdf p.1]",
     citations:[{source_doc:"sample_maintenance_report.pdf",page:1,similarity:0.47}],
-    confidence:0.47, mode:"offline", elapsed_ms:42.0, manual_baseline_ms:480000 },
+    confidence:0.47, mode:"offline", elapsed_ms:42.0, manual_baseline_ms:480000,
+    verification:{status:"verified",coverage:1.0,claims:2,flagged:[]} },
   maintenance: { equipment_tag:"P-101A",
     risk:{ risk:0.9, level:"high", factors:[
       "Vibration 18% over baseline (bearing wear indicator) [+0.36]",
@@ -120,6 +108,10 @@ function Header({online, base, setBase, onReconnect}){
             <button onClick={()=>{setBase(val);setEdit(false);onReconnect(val);}} className="text-xs bg-teal/30 hover:bg-teal/50 border border-teal/50 rounded-lg px-2 py-1">Save</button>
           </div>
         : <button onClick={()=>setEdit(true)} className="text-[11px] text-mist hover:text-ice underline decoration-dotted">{base}</button>}
+      <div className="flex items-center gap-2 bg-panel border border-grn/40 rounded-full px-3 py-1.5" title="All UI assets are served locally — no outbound requests.">
+        <span className="text-xs">🔒</span>
+        <span className="text-xs text-grnbright">Fully local</span>
+      </div>
       <div className="flex items-center gap-2 bg-panel border border-edge rounded-full px-3 py-1.5">
         <span className={"w-2.5 h-2.5 rounded-full pulse-dot "+(online?"bg-grnbright":"bg-danger")}></span>
         <span className="text-xs text-mist">{online? "Backend online":"Offline · sample data"}</span>
@@ -158,6 +150,9 @@ function Copilot({api, online, onAnswered}){
         <Chip tone="teal">routed → {res.routed_to}</Chip>
         <Chip tone="mist">{res.mode} synthesis</Chip>
         <Chip tone={res.confidence>=0.4?"grn":"amber"}>confidence {res.confidence?.toFixed(2)}</Chip>
+        {res.verification && (res.verification.status==="verified"
+          ? <Chip tone="grn"><Icon name="check" cls="w-3 h-3"/>all {res.verification.claims} claims verified</Chip>
+          : <Chip tone="danger">⚠ {res.verification.flagged.length} unverified claim{res.verification.flagged.length!==1?"s":""} flagged</Chip>)}
       </div>
       <p className="text-[15px] leading-relaxed text-ice/95 bg-panel2/50 rounded-xl p-4 border border-edge/50">{highlightCites(res.answer)}</p>
       <div className="flex flex-wrap gap-2">
@@ -173,16 +168,39 @@ function Copilot({api, online, onAnswered}){
 }
 
 /* ---------------- pipeline status ---------------- */
-function Pipeline({api, online, stats, agents, refresh}){
+function Pipeline({api, online, base, stats, agents, refresh}){
   const [ingesting,setIngesting]=useState(false);
-  const ingest = async ()=>{ setIngesting(true); try{ if(online) await api("/ingest/sample",{method:"POST",body:"{}"}); await refresh(); }catch(e){} setIngesting(false); };
+  const [uploading,setUploading]=useState(false);
+  const [msg,setMsg]=useState(null);
+  const fileRef=useRef(null);
+  const ingest = async ()=>{ setIngesting(true);setMsg(null); try{ if(online){const r=await api("/ingest/sample",{method:"POST",body:"{}"}); setMsg("Ingested sample · "+sumEntities(r.entities_found)+" entities");} await refresh(); }catch(e){setMsg("Ingest failed");} setIngesting(false); };
+  const upload = async (e)=>{
+    const f=e.target.files?.[0]; if(!f) return; setUploading(true);setMsg(null);
+    if(!online){ setMsg("Backend offline — start it to upload"); setUploading(false); return; }
+    try{
+      const fd=new FormData(); fd.append("file",f);
+      const res=await fetch(base+"/ingest/upload",{method:"POST",body:fd});
+      const j=await res.json();
+      if(!res.ok) throw new Error(j.detail||res.status);
+      setMsg("Ingested "+j.source_doc+" · "+sumEntities(j.entities_found)+" entities");
+      await refresh();
+    }catch(err){ setMsg("Upload failed: "+String(err).slice(0,60)); }
+    setUploading(false); if(fileRef.current) fileRef.current.value="";
+  };
   return <Card className="p-5">
     <div className="flex items-center gap-2 mb-3">
       <Icon name="layers"/><h2 className="font-semibold text-white">Knowledge Pipeline</h2>
-      <button onClick={ingest} disabled={ingesting} className="ml-auto text-xs bg-panel2 hover:bg-edge border border-edge rounded-lg px-3 py-1.5 flex items-center gap-2">
-        {ingesting? <Spinner/> : <Icon name="plus" cls="w-3.5 h-3.5"/>}Ingest sample
-      </button>
     </div>
+    <div className="flex gap-2 mb-3">
+      <button onClick={()=>fileRef.current?.click()} disabled={uploading} className="flex-1 text-xs bg-teal/25 hover:bg-teal/40 border border-teal/50 rounded-lg px-3 py-2 flex items-center justify-center gap-2">
+        {uploading? <Spinner/> : <Icon name="upload" cls="w-3.5 h-3.5"/>}Upload document
+      </button>
+      <button onClick={ingest} disabled={ingesting} className="text-xs bg-panel2 hover:bg-edge border border-edge rounded-lg px-3 py-2 flex items-center gap-2">
+        {ingesting? <Spinner/> : <Icon name="plus" cls="w-3.5 h-3.5"/>}Sample
+      </button>
+      <input ref={fileRef} type="file" accept=".pdf" onChange={upload} className="hidden"/>
+    </div>
+    {msg && <div className="text-[11px] text-tealbright mb-3">{msg}</div>}
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
       <Stat label="Entities" value={stats.total_entities}/>
       <Stat label="Graph links" value={stats.total_relationships}/>
@@ -302,9 +320,10 @@ function Icon({name, cls="w-4 h-4"}){
     send:"M4 12l16-8-8 16-2-6z", doc:"M6 2h8l4 4v16H6z", layers:"M12 3l9 5-9 5-9-5z M3 13l9 5 9-5",
     gauge:"M12 13a4 4 0 100-8 4 4 0 000 8z M4 20a8 8 0 0116 0", shield:"M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
     bolt:"M13 2L4 14h6l-1 8 9-12h-6z", play:"M6 4l14 8-14 8z", plus:"M12 5v14M5 12h14",
-    check:"M4 12l5 5L20 6" };
+    upload:"M12 16V4M6 10l6-6 6 6M4 20h16", check:"M4 12l5 5L20 6" };
   return <svg className={cls+" text-tealbright"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={P[name]}/></svg>;
 }
+function sumEntities(obj){ try{ return Object.values(obj||{}).reduce((a,b)=>a+b,0); }catch(e){ return 0; } }
 function highlightCites(text){
   if(!text) return text;
   const parts = String(text).split(/(\[[^\]]*p\.\d+\])/g);
@@ -348,7 +367,7 @@ function App(){
         </div>
       </div>
       <div className="space-y-5">
-        <Pipeline api={api} online={online} stats={stats} agents={agents} refresh={refresh}/>
+        <Pipeline api={api} online={online} base={base} stats={stats} agents={agents} refresh={refresh}/>
         <SpeedPanel lastMs={lastMs}/>
       </div>
     </div>
