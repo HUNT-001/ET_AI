@@ -1,10 +1,12 @@
 import os
+import tempfile
 import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from agents.reasoning_agent import Passage, reason_via
+from agents.verifier_agent import verify_answer
 from backend.core.orchestrator import Orchestrator
 from knowledge.pipeline import ingest_pdf
 from knowledge.store import knowledge_graph, vector_store
@@ -100,6 +102,8 @@ def ask(req: AskRequest):
     results = vector_store.search(req.query, top_k=req.top_k)
     passages = [Passage(r.text, r.source_doc, r.page, r.similarity) for r in results]
     synth = reason_via(None, req.query, passages)
+    # Supervisor pass: verify grounding before returning to the technician.
+    verification = verify_answer(synth["answer"], passages)
     elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
     return {
         "query": req.query,
@@ -108,6 +112,7 @@ def ask(req: AskRequest):
         "citations": synth["citations"],
         "confidence": synth["confidence"],
         "mode": synth["mode"],
+        "verification": verification,
         "elapsed_ms": elapsed_ms,
         "manual_baseline_ms": _MANUAL_SEARCH_BASELINE_MS,
     }
@@ -129,6 +134,33 @@ def knowledge_stats():
         "documents": [os.path.basename(d) for d in docs],
         "vector_chunks": vector_count,
         "ready": stats["total_entities"] > 0,
+    }
+
+
+@router.post("/ingest/upload")
+async def ingest_upload(file: UploadFile = File(...)):
+    """Upload a document (PDF) from the dashboard and ingest it into the shared
+    knowledge graph + vector store. Scanned PDFs are OCR'd if Tesseract is
+    installed; otherwise a clear 422 is returned."""
+    data = await file.read()
+    safe_name = os.path.basename(file.filename or "upload.pdf")
+    tmp_path = os.path.join(tempfile.gettempdir(), safe_name)
+    with open(tmp_path, "wb") as f:
+        f.write(data)
+    try:
+        result = ingest_pdf(tmp_path, graph=knowledge_graph, vector_store=vector_store)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+    return {
+        "source_doc": safe_name,
+        "pages_ingested": result.num_pages,
+        "chunks_created": result.num_chunks,
+        "entities_found": result.entities_found,
     }
 
 
