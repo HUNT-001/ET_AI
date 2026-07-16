@@ -1,26 +1,22 @@
 """
-IngestionAgent — "Universal Document Ingestion & Knowledge Graph Agent"
+IngestionAgent -- "Universal Document Ingestion & Knowledge Graph Agent"
 (PS8: AI for Industrial Knowledge Intelligence)
 
-Processes PDFs, P&IDs, scanned forms, spreadsheets, and email archives.
-Extracts entities and builds/updates a unified knowledge graph that
-maintains relationships across document types as new records arrive.
+Processes PDFs (text-native; scanned/OCR path not yet implemented -- see
+knowledge/pdf_extract.py TODO), extracts entities, and writes them into
+the shared knowledge graph + vector store that KnowledgeAgent queries.
 
-This is the entry point for every other PS8 agent — Knowledge, Maintenance,
-Compliance, and Lessons-Learned all query the graph/index this agent builds.
+REAL implementation as of this version -- not a stub. Pass a real file
+path in request.payload["path"] to ingest it.
 """
 
 from agents.base import AgentRequest, AgentResponse, BaseAgent
+from knowledge.pipeline import ingest_pdf
+from knowledge.store import knowledge_graph, vector_store
 
-# Entity types called out explicitly in the PS8 brief. Extraction should
-# tag spans with one of these categories so downstream agents (Compliance,
-# Maintenance) can query the graph by entity type.
+# Entity types called out explicitly in the PS8 brief.
 ENTITY_TYPES = [
-    "equipment_tag",       # e.g. "P-101A", "V-204"
-    "process_parameter",   # e.g. "operating pressure", "flow rate"
-    "regulatory_reference", # e.g. "OISD-STD-118", "Factory Act Sec. 21"
-    "personnel",           # names/roles referenced in logs, sign-offs
-    "date",                 # inspection dates, permit validity, incident dates
+    "equipment_tag", "process_parameter", "regulatory_reference", "personnel", "date",
 ]
 
 SUPPORTED_SOURCE_TYPES = [
@@ -31,20 +27,39 @@ SUPPORTED_SOURCE_TYPES = [
 class IngestionAgent(BaseAgent):
     name = "ingestion"
     description = (
-        "Universal Document Ingestion & Knowledge Graph Agent — processes "
-        "PDFs, P&IDs, scanned forms, spreadsheets, and email archives; "
-        "extracts equipment tags, process parameters, regulatory references, "
-        "personnel, and dates; builds a unified, auto-updating knowledge graph."
+        "Universal Document Ingestion & Knowledge Graph Agent -- processes "
+        "PDFs, extracts equipment tags, process parameters, regulatory "
+        "references, personnel, and dates; writes a unified, auto-updating "
+        "knowledge graph and vector index."
     )
-    tools: list[str] = ["ocr", "paddleocr", "entity_extraction", "neo4j_write", "vector_upsert"]
+    tools: list[str] = ["pdfplumber", "entity_extraction", "networkx_graph", "chromadb"]
 
     def run(self, request: AgentRequest) -> AgentResponse:
-        # TODO: real pipeline — OCR (PaddleOCR/EasyOCR) -> layout/entity
-        # extraction (spaCy/LLM-based NER tuned on ENTITY_TYPES) -> write
-        # nodes/edges to Neo4j -> upsert embeddings to Chroma/Qdrant.
+        path = request.payload.get("path")
+        if not path:
+            return AgentResponse(
+                agent_name=self.name,
+                result=None,
+                confidence=0.0,
+                notes="No 'path' provided in payload -- pass {'path': '/path/to/doc.pdf'}.",
+            )
+
+        try:
+            result = ingest_pdf(path, graph=knowledge_graph, vector_store=vector_store)
+        except ValueError as e:
+            # e.g. scanned PDF with no extractable text -- OCR not yet wired
+            return AgentResponse(
+                agent_name=self.name, result=None, confidence=0.0, notes=str(e),
+            )
+
         return AgentResponse(
             agent_name=self.name,
-            result=f"[stub] would ingest document(s) for task='{request.task}'",
-            confidence=0.0,
-            notes="Stub — wire to OCR + entity extraction + Neo4j + vector DB.",
+            result={
+                "source_doc": result.source_doc,
+                "pages_ingested": result.num_pages,
+                "chunks_created": result.num_chunks,
+                "entities_found": result.entities_found,
+            },
+            confidence=1.0 if result.num_chunks > 0 else 0.0,
+            notes="Real ingestion — PDF text extraction, entity extraction, graph + vector write all executed.",
         )
