@@ -10,7 +10,26 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
+
+
+@dataclass
+class AgentServices:
+    """Handle the Orchestrator injects into every AgentRequest so an agent can
+    call *other* agents and reach shared memory WITHOUT importing them directly.
+
+    This is what enforces the 'Orchestrator is the center' principle from
+    Architecture.md: MaintenanceAgent asks for the ForecastingAgent's output
+    via `services.invoke("forecasting", ...)` rather than importing its
+    internals, so routing, memory logging, and future cross-cutting concerns
+    (tracing, auth, caching) all live in one place.
+
+    `invoke(agent_name, task, payload) -> AgentResponse`
+    `memory` is the shared MemoryLayer (or None when an agent is unit-tested
+    in isolation, in which case agents fall back to a direct local path).
+    """
+    invoke: Callable[..., "AgentResponse"]
+    memory: Any = None
 
 
 @dataclass
@@ -19,6 +38,7 @@ class AgentRequest:
     task: str
     payload: dict[str, Any] = field(default_factory=dict)
     context: dict[str, Any] = field(default_factory=dict)  # shared memory slice
+    services: "AgentServices | None" = None  # cross-agent + memory access
 
 
 @dataclass
