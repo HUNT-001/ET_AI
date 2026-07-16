@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EdgeAI-OS — Operations Console</title>
+<!-- All assets served locally — zero outbound requests (air-gapped / privacy-first demo) -->
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./vendor/babel.min.js"></script>
+<link href="./vendor/tailwind.css" rel="stylesheet">
+<style>
+  html,body{background:#0A1626;}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#1E3A57;border-radius:8px}
+  .fade-in{animation:fade .4s ease both}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .pulse-dot{animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+  .bar-grow{transition:width .8s cubic-bezier(.22,1,.36,1)}
+</style>
+</head>
+<body class="font-sans text-ice">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const DEFAULT_API = "http://localhost:8000";
+
+/* ---------------- sample fallback (used when backend is offline) ---------------- */
+const SAMPLE = {
+  stats: { total_entities: 20, total_relationships: 24, cross_document_entities: 0,
+           documents_ingested: 1, documents: ["sample_maintenance_report.pdf"], vector_chunks: 3, ready: true },
+  agents: [
+    { name:"ingestion", description:"Universal Document Ingestion & Knowledge Graph Agent." },
+    { name:"knowledge", description:"Expert Knowledge Copilot — cited RAG Q&A." },
+    { name:"maintenance", description:"Maintenance Intelligence & RCA Agent." },
+    { name:"compliance", description:"Quality & Regulatory Compliance Intelligence." },
+    { name:"lessons_learned", description:"Lessons Learned & Failure Intelligence Engine." },
+  ],
+  ask: { query:"What did the inspection find about P-101A bearing?", routed_to:"knowledge",
+    answer:"Vibration readings on P-101A exceeded the baseline threshold by 18%, consistent with early-stage bearing wear. [sample_maintenance_report.pdf p.1] Bearing housing temperature on P-101A reached 71 degrees Celsius, above the 65 degree Celsius normal operating range. [sample_maintenance_report.pdf p.1]",
+    citations:[{source_doc:"sample_maintenance_report.pdf",page:1,similarity:0.47}],
+    confidence:0.47, mode:"offline", elapsed_ms:42.0, manual_baseline_ms:480000,
+    verification:{status:"verified",coverage:1.0,claims:2,flagged:[]} },
+  maintenance: { equipment_tag:"P-101A",
+    risk:{ risk:0.9, level:"high", factors:[
+      "Vibration 18% over baseline (bearing wear indicator) [+0.36]",
+      "Temperature 71°C over 65°C normal range [+0.14]",
+      "Operating pressure at 100% of rated maximum [+0.20]",
+      "Recurrence of a previously recorded anomaly [+0.20]"]},
+    monitoring:{ anomaly:false, detail:"No live signal (need ≥3 numeric readings)." },
+    recommendation:"P-101A: HIGH degradation risk (score 0.9). Recommended priority: High.",
+    priority:"High",
+    rca_narrative:"Given the recurrence pattern, bearing replacement is recommended rather than a further torque adjustment. [sample_maintenance_report.pdf p.1]",
+    citations:[{source_doc:"sample_maintenance_report.pdf",page:1,similarity:0.46}] },
+  compliance: { area:"North Sector Process Unit 3",
+    frameworks_covered:["Factory Act","OISD"], coverage_gaps:["PESO","environmental_norms","quality_standards"],
+    quality_deviations:["Bearing housing temperature on P-101A reached 71°C above the 65°C normal range [sample_maintenance_report.pdf p.1]"],
+    gap_count:4 },
+};
+
+/* ---------------- tiny api helper ---------------- */
+function useApi(base){
+  const call = async (path, opts) => {
+    const res = await fetch(base+path, { headers:{'Content-Type':'application/json'}, ...opts });
+    if(!res.ok) throw new Error(res.status+" "+res.statusText);
+    return res.json();
+  };
+  return call;
+}
+
+const RISK_COLOR = { high:"#E8734A", medium:"#D8A23A", low:"#49C07E" };
+
+/* ---------------- shared UI bits ---------------- */
+function Card({children, className=""}){
+  return <div className={"bg-panel border border-edge/70 rounded-2xl "+className}>{children}</div>;
+}
+function Spinner(){ return <svg className="spin w-4 h-4 text-tealbright" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" strokeOpacity=".25"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>; }
+function Chip({children, tone="teal"}){
+  const map={teal:"bg-teal/20 text-tealbright border-teal/40",grn:"bg-grn/15 text-grnbright border-grn/40",amber:"bg-amber/15 text-amber border-amber/40",danger:"bg-danger/15 text-danger border-danger/40",mist:"bg-white/5 text-mist border-edge"};
+  return <span className={"inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border "+map[tone]}>{children}</span>;
+}
+function Stat({label, value, sub}){
+  return <div className="bg-panel2/60 rounded-xl px-4 py-3 border border-edge/50">
+    <div className="text-2xl font-bold text-white leading-none">{value}</div>
+    <div className="text-[11px] uppercase tracking-wide text-mist mt-1">{label}</div>
+    {sub && <div className="text-[11px] text-teal mt-0.5">{sub}</div>}
+  </div>;
+}
+
+/* ---------------- header ---------------- */
+function Header({online, base, setBase, onReconnect}){
+  const [edit,setEdit]=useState(false);const [val,setVal]=useState(base);
+  return <div className="flex items-center justify-between gap-4 mb-6">
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal to-grn grid place-items-center font-display text-white text-lg font-bold">E</div>
+      <div>
+        <div className="font-display text-2xl text-white leading-none">EdgeAI-OS</div>
+        <div className="text-[12px] text-mist">Industrial Knowledge Intelligence · Operations Console</div>
+      </div>
+    </div>
+    <div className="flex items-center gap-3">
+      {edit
+        ? <div className="flex items-center gap-1">
+            <input value={val} onChange={e=>setVal(e.target.value)} className="bg-panel2 border border-edge rounded-lg px-2 py-1 text-xs w-52 text-ice" />
+            <button onClick={()=>{setBase(val);setEdit(false);onReconnect(val);}} className="text-xs bg-teal/30 hover:bg-teal/50 border border-teal/50 rounded-lg px-2 py-1">Save</button>
+          </div>
+        : <button onClick={()=>setEdit(true)} className="text-[11px] text-mist hover:text-ice underline decoration-dotted">{base}</button>}
+      <div className="flex items-center gap-2 bg-panel border border-grn/40 rounded-full px-3 py-1.5" title="All UI assets are served locally — no outbound requests.">
+        <span className="text-xs">🔒</span>
+        <span className="text-xs text-grnbright">Fully local</span>
+      </div>
+      <div className="flex items-center gap-2 bg-panel border border-edge rounded-full px-3 py-1.5">
+        <span className={"w-2.5 h-2.5 rounded-full pulse-dot "+(online?"bg-grnbright":"bg-danger")}></span>
+        <span className="text-xs text-mist">{online? "Backend online":"Offline · sample data"}</span>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ---------------- copilot ---------------- */
+function Copilot({api, online, onAnswered}){
+  const [q,setQ]=useState("What did the inspection find about P-101A bearing?");
+  const [res,setRes]=useState(null);const [loading,setLoading]=useState(false);const [err,setErr]=useState(null);
+  const ask = async () => {
+    if(!q.trim())return; setLoading(true);setErr(null);
+    try{ const r = online ? await api("/ask",{method:"POST",body:JSON.stringify({query:q,top_k:3})}) : {...SAMPLE.ask,query:q};
+      setRes(r); if(r.elapsed_ms && onAnswered) onAnswered(r.elapsed_ms);
+    }catch(e){ setErr(String(e)); setRes({...SAMPLE.ask,query:q}); }
+    setLoading(false);
+  };
+  const speed = res ? Math.max(1, Math.round(res.manual_baseline_ms/Math.max(res.elapsed_ms,1))) : null;
+  return <Card className="p-5">
+    <div className="flex items-center gap-2 mb-3">
+      <Icon name="spark"/><h2 className="font-semibold text-white">Expert Knowledge Copilot</h2>
+      <span className="ml-auto text-[11px] text-mist">cited answers · confidence-scored</span>
+    </div>
+    <div className="flex gap-2">
+      <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&ask()}
+        placeholder="Ask about equipment, procedures, compliance…"
+        className="flex-1 bg-panel2 border border-edge rounded-xl px-4 py-2.5 text-sm text-ice placeholder:text-mist/60 focus:outline-none focus:border-teal"/>
+      <button onClick={ask} disabled={loading} className="bg-teal hover:bg-tealbright transition text-white text-sm font-medium rounded-xl px-5 flex items-center gap-2 disabled:opacity-60">
+        {loading? <Spinner/> : <Icon name="send"/>}Ask
+      </button>
+    </div>
+    {res && <div className="fade-in mt-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Chip tone="teal">routed → {res.routed_to}</Chip>
+        <Chip tone="mist">{res.mode} synthesis</Chip>
+        <Chip tone={res.confidence>=0.4?"grn":"amber"}>confidence {res.confidence?.toFixed(2)}</Chip>
+        {res.verification && (res.verification.status==="verified"
+          ? <Chip tone="grn"><Icon name="check" cls="w-3 h-3"/>all {res.verification.claims} claims verified</Chip>
+          : <Chip tone="danger">⚠ {res.verification.flagged.length} unverified claim{res.verification.flagged.length!==1?"s":""} flagged</Chip>)}
+      </div>
+      <p className="text-[15px] leading-relaxed text-ice/95 bg-panel2/50 rounded-xl p-4 border border-edge/50">{highlightCites(res.answer)}</p>
+      <div className="flex flex-wrap gap-2">
+        {(res.citations||[]).map((c,i)=><Chip key={i} tone="grn"><Icon name="doc" cls="w-3 h-3"/>{c.source_doc} · p.{c.page}</Chip>)}
+      </div>
+      <div className="flex items-center gap-4 pt-1">
+        <div className="text-xs text-mist">Answered in <b className="text-tealbright">{res.elapsed_ms} ms</b></div>
+        {speed && <div className="text-xs text-mist">≈ <b className="text-grnbright">{speed.toLocaleString()}×</b> faster than an ~8-min manual search</div>}
+      </div>
+    </div>}
+    {err && <div className="text-[11px] text-amber mt-2">Live call failed ({err}) — showing sample answer.</div>}
+  </Card>;
+}
+
+/* ---------------- pipeline status ---------------- */
+function Pipeline({api, online, base, stats, agents, refresh}){
+  const [ingesting,setIngesting]=useState(false);
+  const [uploading,setUploading]=useState(false);
+  const [msg,setMsg]=useState(null);
+  const fileRef=useRef(null);
+  const ingest = async ()=>{ setIngesting(true);setMsg(null); try{ if(online){const r=await api("/ingest/sample",{method:"POST",body:"{}"}); setMsg("Ingested sample · "+sumEntities(r.entities_found)+" entities");} await refresh(); }catch(e){setMsg("Ingest failed");} setIngesting(false); };
+  const upload = async (e)=>{
+    const f=e.target.files?.[0]; if(!f) return; setUploading(true);setMsg(null);
+    if(!online){ setMsg("Backend offline — start it to upload"); setUploading(false); return; }
+    try{
+      const fd=new FormData(); fd.append("file",f);
+      const res=await fetch(base+"/ingest/upload",{method:"POST",body:fd});
+      const j=await res.json();
+      if(!res.ok) throw new Error(j.detail||res.status);
+      setMsg("Ingested "+j.source_doc+" · "+sumEntities(j.entities_found)+" entities");
+      await refresh();
+    }catch(err){ setMsg("Upload failed: "+String(err).slice(0,60)); }
+    setUploading(false); if(fileRef.current) fileRef.current.value="";
+  };
+  return <Card className="p-5">
+    <div className="flex items-center gap-2 mb-3">
+      <Icon name="layers"/><h2 className="font-semibold text-white">Knowledge Pipeline</h2>
+    </div>
+    <div className="flex gap-2 mb-3">
+      <button onClick={()=>fileRef.current?.click()} disabled={uploading} className="flex-1 text-xs bg-teal/25 hover:bg-teal/40 border border-teal/50 rounded-lg px-3 py-2 flex items-center justify-center gap-2">
+        {uploading? <Spinner/> : <Icon name="upload" cls="w-3.5 h-3.5"/>}Upload document
+      </button>
+      <button onClick={ingest} disabled={ingesting} className="text-xs bg-panel2 hover:bg-edge border border-edge rounded-lg px-3 py-2 flex items-center gap-2">
+        {ingesting? <Spinner/> : <Icon name="plus" cls="w-3.5 h-3.5"/>}Sample
+      </button>
+      <input ref={fileRef} type="file" accept=".pdf" onChange={upload} className="hidden"/>
+    </div>
+    {msg && <div className="text-[11px] text-tealbright mb-3">{msg}</div>}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+      <Stat label="Entities" value={stats.total_entities}/>
+      <Stat label="Graph links" value={stats.total_relationships}/>
+      <Stat label="Cross-doc" value={stats.cross_document_entities}/>
+      <Stat label="Documents" value={stats.documents_ingested}/>
+    </div>
+    <div className="text-[11px] uppercase tracking-wide text-mist mb-2">Primary agents</div>
+    <div className="space-y-1.5">
+      {agents.filter(a=>["ingestion","knowledge","maintenance","compliance","lessons_learned"].includes(a.name)).map((a,i)=>
+        <div key={i} className="flex items-center gap-3 bg-panel2/40 rounded-lg px-3 py-2 border border-edge/40">
+          <span className="w-2 h-2 rounded-full bg-grnbright"></span>
+          <span className="text-sm font-medium text-ice capitalize">{a.name.replace('_',' ')}</span>
+          <span className="text-[11px] text-mist truncate flex-1">{a.description}</span>
+          <Chip tone="grn">real</Chip>
+        </div>)}
+    </div>
+  </Card>;
+}
+
+/* ---------------- maintenance ---------------- */
+function Maintenance({api, online}){
+  const [tag,setTag]=useState("P-101A");const [res,setRes]=useState(null);const [loading,setLoading]=useState(false);
+  const run = async ()=>{ setLoading(true);
+    try{ const r = online ? await api("/agents/dispatch",{method:"POST",body:JSON.stringify({agent:"maintenance",task:tag,payload:{equipment_tag:tag}})}) : {result:SAMPLE.maintenance};
+      setRes(r.result);
+    }catch(e){ setRes(SAMPLE.maintenance); } setLoading(false); };
+  useEffect(()=>{ run(); },[]);
+  const risk = res?.risk;
+  return <Card className="p-5">
+    <div className="flex items-center gap-2 mb-3"><Icon name="gauge"/><h2 className="font-semibold text-white">Maintenance & RCA</h2></div>
+    <div className="flex gap-2 mb-4">
+      <input value={tag} onChange={e=>setTag(e.target.value)} onKeyDown={e=>e.key==='Enter'&&run()} className="w-32 bg-panel2 border border-edge rounded-lg px-3 py-2 text-sm text-ice"/>
+      <button onClick={run} disabled={loading} className="bg-teal hover:bg-tealbright transition text-white text-sm rounded-lg px-4 flex items-center gap-2">{loading?<Spinner/>:<Icon name="play" cls="w-4 h-4"/>}Diagnose</button>
+    </div>
+    {risk && <div className="fade-in space-y-3">
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm text-mist">Degradation risk</span>
+          <span className="text-sm font-bold" style={{color:RISK_COLOR[risk.level]}}>{risk.level.toUpperCase()} · {risk.risk}</span>
+        </div>
+        <div className="h-2.5 rounded-full bg-panel2 overflow-hidden">
+          <div className="h-full bar-grow rounded-full" style={{width:(risk.risk*100)+"%", background:RISK_COLOR[risk.level]}}></div>
+        </div>
+      </div>
+      <div className="space-y-1">
+        {risk.factors.map((f,i)=><div key={i} className="text-[13px] text-ice/90 flex gap-2"><span className="text-danger">▸</span>{f}</div>)}
+      </div>
+      <div className="bg-panel2/50 rounded-xl p-3 border border-edge/50">
+        <div className="text-[11px] uppercase tracking-wide text-mist mb-1">Root-cause narrative</div>
+        <p className="text-[13px] text-ice/90 leading-relaxed">{highlightCites(res.rca_narrative)}</p>
+      </div>
+      <div className="text-[13px] text-grnbright font-medium">{res.recommendation}</div>
+    </div>}
+  </Card>;
+}
+
+/* ---------------- compliance ---------------- */
+function Compliance({api, online}){
+  const [area,setArea]=useState("North Sector Process Unit 3");const [res,setRes]=useState(null);const [loading,setLoading]=useState(false);
+  const run = async ()=>{ setLoading(true);
+    try{ const r = online ? await api("/agents/dispatch",{method:"POST",body:JSON.stringify({agent:"compliance",task:area,payload:{area}})}) : {result:SAMPLE.compliance};
+      setRes(r.result);
+    }catch(e){ setRes(SAMPLE.compliance); } setLoading(false); };
+  useEffect(()=>{ run(); },[]);
+  return <Card className="p-5">
+    <div className="flex items-center gap-2 mb-3"><Icon name="shield"/><h2 className="font-semibold text-white">Compliance Intelligence</h2>
+      {res && <span className="ml-auto"><Chip tone={res.gap_count?"amber":"grn"}>{res.gap_count} gap{res.gap_count!==1?"s":""}</Chip></span>}</div>
+    <div className="flex gap-2 mb-4">
+      <input value={area} onChange={e=>setArea(e.target.value)} onKeyDown={e=>e.key==='Enter'&&run()} className="flex-1 bg-panel2 border border-edge rounded-lg px-3 py-2 text-sm text-ice"/>
+      <button onClick={run} disabled={loading} className="bg-teal hover:bg-tealbright transition text-white text-sm rounded-lg px-4 flex items-center gap-2">{loading?<Spinner/>:<Icon name="play" cls="w-4 h-4"/>}Check</button>
+    </div>
+    {res && <div className="fade-in space-y-3">
+      <div>
+        <div className="text-[11px] uppercase tracking-wide text-mist mb-1.5">Frameworks referenced</div>
+        <div className="flex flex-wrap gap-1.5">{res.frameworks_covered.map((f,i)=><Chip key={i} tone="grn"><Icon name="check" cls="w-3 h-3"/>{f}</Chip>)}</div>
+      </div>
+      <div>
+        <div className="text-[11px] uppercase tracking-wide text-mist mb-1.5">Coverage gaps</div>
+        <div className="flex flex-wrap gap-1.5">{res.coverage_gaps.map((f,i)=><Chip key={i} tone="danger">{f.replace('_',' ')}</Chip>)}</div>
+      </div>
+      {res.quality_deviations?.length>0 && <div>
+        <div className="text-[11px] uppercase tracking-wide text-mist mb-1.5">Recorded deviations</div>
+        {res.quality_deviations.map((d,i)=><div key={i} className="text-[12px] text-ice/85 bg-panel2/50 rounded-lg p-2 border border-amber/30 mb-1">{highlightCites(d)}</div>)}
+      </div>}
+    </div>}
+  </Card>;
+}
+
+/* ---------------- time-to-answer ---------------- */
+function SpeedPanel({lastMs}){
+  const manual=480000; const ai=lastMs||42;
+  const maxLog = Math.log10(manual);
+  const w = (v)=> Math.max(4, (Math.log10(Math.max(v,1))/maxLog)*100);
+  return <Card className="p-5">
+    <div className="flex items-center gap-2 mb-4"><Icon name="bolt"/><h2 className="font-semibold text-white">Time to Answer</h2><span className="ml-auto text-[11px] text-mist">log scale</span></div>
+    <div className="space-y-4">
+      <Row label="Manual multi-system search" val="≈ 8 min" width={w(manual)} color="#E8734A" note="7–12 disconnected systems"/>
+      <Row label="EdgeAI-OS cited answer" val={ai+" ms"} width={w(ai)} color="#49C07E" note="one query · one source of truth"/>
+    </div>
+    <div className="mt-4 text-center">
+      <div className="text-3xl font-bold text-grnbright">{Math.round(manual/Math.max(ai,1)).toLocaleString()}×</div>
+      <div className="text-[11px] text-mist uppercase tracking-wide">faster to a cited answer</div>
+    </div>
+  </Card>;
+}
+function Row({label,val,width,color,note}){
+  return <div>
+    <div className="flex items-center justify-between mb-1"><span className="text-sm text-ice">{label}</span><span className="text-sm font-semibold" style={{color}}>{val}</span></div>
+    <div className="h-3 rounded-full bg-panel2 overflow-hidden"><div className="h-full bar-grow rounded-full" style={{width:width+"%",background:color}}></div></div>
+    <div className="text-[11px] text-mist mt-0.5">{note}</div>
+  </div>;
+}
+
+/* ---------------- icons ---------------- */
+function Icon({name, cls="w-4 h-4"}){
+  const P={ spark:"M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8z",
+    send:"M4 12l16-8-8 16-2-6z", doc:"M6 2h8l4 4v16H6z", layers:"M12 3l9 5-9 5-9-5z M3 13l9 5 9-5",
+    gauge:"M12 13a4 4 0 100-8 4 4 0 000 8z M4 20a8 8 0 0116 0", shield:"M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
+    bolt:"M13 2L4 14h6l-1 8 9-12h-6z", play:"M6 4l14 8-14 8z", plus:"M12 5v14M5 12h14",
+    upload:"M12 16V4M6 10l6-6 6 6M4 20h16", check:"M4 12l5 5L20 6" };
+  return <svg className={cls+" text-tealbright"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={P[name]}/></svg>;
+}
+function sumEntities(obj){ try{ return Object.values(obj||{}).reduce((a,b)=>a+b,0); }catch(e){ return 0; } }
+function highlightCites(text){
+  if(!text) return text;
+  const parts = String(text).split(/(\[[^\]]*p\.\d+\])/g);
+  return parts.map((p,i)=> /^\[.*p\.\d+\]$/.test(p)
+    ? <span key={i} className="text-tealbright font-medium">{p}</span>
+    : <span key={i}>{p}</span>);
+}
+
+/* ---------------- app ---------------- */
+function App(){
+  const [base,setBase]=useState(DEFAULT_API);
+  const [online,setOnline]=useState(false);
+  const [stats,setStats]=useState(SAMPLE.stats);
+  const [agents,setAgents]=useState(SAMPLE.agents);
+  const [lastMs,setLastMs]=useState(42);
+  const api = useApi(base);
+
+  const probe = async (b=base) => {
+    try{
+      const call = useApi(b);
+      await call("/health");
+      setOnline(true);
+      try{ setStats(await call("/knowledge/stats")); }catch(e){}
+      try{ const a = await call("/agents/primary"); if(Array.isArray(a)&&a.length) setAgents(a);}catch(e){}
+      return true;
+    }catch(e){ setOnline(false); setStats(SAMPLE.stats); setAgents(SAMPLE.agents); return false; }
+  };
+  const refresh = async ()=>{ try{ setStats(await api("/knowledge/stats")); }catch(e){} };
+  useEffect(()=>{ probe(); },[]);
+
+  return <div className="max-w-6xl mx-auto px-5 py-7">
+    <Header online={online} base={base} setBase={setBase} onReconnect={probe}/>
+    {!online && <div className="mb-5 text-[12px] text-amber bg-amber/10 border border-amber/30 rounded-xl px-4 py-2">
+      Backend not reachable — showing bundled sample data. Start it with <code className="text-ice">uvicorn backend.main:app --port 8000</code>, then click the address to reconnect.</div>}
+    <div className="grid lg:grid-cols-3 gap-5">
+      <div className="lg:col-span-2 space-y-5">
+        <Copilot api={api} online={online} onAnswered={setLastMs}/>
+        <div className="grid md:grid-cols-2 gap-5">
+          <Maintenance api={api} online={online}/>
+          <Compliance api={api} online={online}/>
+        </div>
+      </div>
+      <div className="space-y-5">
+        <Pipeline api={api} online={online} base={base} stats={stats} agents={agents} refresh={refresh}/>
+        <SpeedPanel lastMs={lastMs}/>
+      </div>
+    </div>
+    <div className="text-center text-[11px] text-mist/60 mt-8">EdgeAI-OS · ET AI Hackathon 2026 · Problem Statement 8</div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

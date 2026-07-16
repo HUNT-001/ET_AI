@@ -1,0 +1,107 @@
+<svg viewBox="0 0 1000 720" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#3a4a63"/>
+    </marker>
+    <style>
+      .layer { fill:#f4f7fb; stroke:#cdd8e6; stroke-width:1.5; rx:12; }
+      .ltitle { fill:#1f3a5f; font-size:15px; font-weight:700; }
+      .box { rx:8; stroke-width:1.5; }
+      .btxt { font-size:12.5px; fill:#12233b; }
+      .bsub { font-size:10px; fill:#54657a; }
+      .real { fill:#e7f6ec; stroke:#3fa564; }
+      .supp { fill:#eef1f6; stroke:#9aa9bd; }
+      .core { fill:#e8eefc; stroke:#4a6fb5; }
+      .flow { stroke:#3a4a63; stroke-width:1.8; fill:none; marker-end:url(#arrow); }
+      .flab { font-size:9.5px; fill:#3a4a63; }
+      .tag { font-size:9px; font-weight:700; }
+    </style>
+  </defs>
+
+  <text x="500" y="30" text-anchor="middle" font-size="22" font-weight="700" fill="#12233b">EdgeAI-OS — Industrial Knowledge Intelligence Platform</text>
+  <text x="500" y="50" text-anchor="middle" font-size="12.5" fill="#54657a">ET AI Hackathon 2026 · PS8 · Unified Asset &amp; Operations Brain</text>
+
+  <!-- Client -->
+  <rect x="400" y="70" width="200" height="40" class="box core"/>
+  <text x="500" y="95" text-anchor="middle" class="btxt" font-weight="700">Client / API consumers</text>
+
+  <!-- FastAPI -->
+  <rect x="360" y="130" width="280" height="46" class="box core"/>
+  <text x="500" y="150" text-anchor="middle" class="btxt" font-weight="700">FastAPI Backend</text>
+  <text x="500" y="166" text-anchor="middle" class="bsub">/health · /agents · /orchestrate · /dispatch · /memory</text>
+
+  <!-- Orchestrator + Memory -->
+  <rect x="300" y="196" width="240" height="52" class="box core"/>
+  <text x="420" y="217" text-anchor="middle" class="btxt" font-weight="700">AI Orchestrator</text>
+  <text x="420" y="233" text-anchor="middle" class="bsub">routing · scheduling · context</text>
+  <rect x="556" y="196" width="150" height="52" class="box core"/>
+  <text x="631" y="217" text-anchor="middle" class="btxt" font-weight="700">MemoryLayer</text>
+  <text x="631" y="233" text-anchor="middle" class="bsub">working · long-term</text>
+
+  <!-- Agent layer -->
+  <rect x="30" y="272" width="600" height="250" class="layer"/>
+  <text x="50" y="296" class="ltitle">Agent Layer — common BaseAgent contract</text>
+
+  <!-- Primary agents -->
+  <text x="50" y="318" class="tag" fill="#2f7d4c">PRIMARY (PS8 "What You May Build") — all REAL</text>
+  <g>
+    <rect x="50" y="326" width="180" height="50" class="box real"/>
+    <text x="60" y="345" class="btxt" font-weight="700">IngestionAgent</text>
+    <text x="60" y="362" class="bsub">docs → graph + vectors</text>
+
+    <rect x="242" y="326" width="180" height="50" class="box real"/>
+    <text x="252" y="345" class="btxt" font-weight="700">KnowledgeAgent</text>
+    <text x="252" y="362" class="bsub">cited RAG copilot</text>
+
+    <rect x="434" y="326" width="180" height="50" class="box real"/>
+    <text x="444" y="345" class="btxt" font-weight="700">MaintenanceAgent</text>
+    <text x="444" y="362" class="bsub">RCA + risk score</text>
+
+    <rect x="50" y="384" width="270" height="50" class="box real"/>
+    <text x="60" y="403" class="btxt" font-weight="700">ComplianceAgent</text>
+    <text x="60" y="420" class="bsub">gap detection + evidence pack</text>
+
+    <rect x="332" y="384" width="282" height="50" class="box real"/>
+    <text x="342" y="403" class="btxt" font-weight="700">LessonsLearnedAgent</text>
+    <text x="342" y="420" class="bsub">pattern mining + proactive alerts</text>
+  </g>
+
+  <!-- Supporting agents -->
+  <text x="50" y="456" class="tag" fill="#5a6b80">SUPPORTING (internal building blocks)</text>
+  <g class="bsub">
+    <rect x="50" y="464" width="108" height="44" class="box supp"/><text x="104" y="490" text-anchor="middle" class="btxt">Reasoning</text>
+    <rect x="168" y="464" width="108" height="44" class="box supp"/><text x="222" y="490" text-anchor="middle" class="btxt">Forecasting</text>
+    <rect x="286" y="464" width="108" height="44" class="box supp"/><text x="340" y="490" text-anchor="middle" class="btxt">Reporting</text>
+    <rect x="404" y="464" width="108" height="44" class="box supp"/><text x="458" y="490" text-anchor="middle" class="btxt">Notification</text>
+    <rect x="522" y="464" width="92" height="44" class="box supp"/><text x="568" y="484" text-anchor="middle" class="btxt">Planner</text><text x="568" y="498" text-anchor="middle" class="bsub">Vision·Monitor</text>
+  </g>
+
+  <!-- Knowledge layer -->
+  <rect x="660" y="272" width="310" height="250" class="layer"/>
+  <text x="680" y="296" class="ltitle">Knowledge Layer — REAL pipeline</text>
+  <rect x="680" y="312" width="270" height="44" class="box real"/>
+  <text x="690" y="331" class="btxt" font-weight="700">PDF extraction</text><text x="690" y="347" class="bsub">pdfplumber (OCR fallback: planned)</text>
+  <rect x="680" y="364" width="270" height="44" class="box real"/>
+  <text x="690" y="383" class="btxt" font-weight="700">Entity extraction</text><text x="690" y="399" class="bsub">5 PS8 entity types (regex)</text>
+  <rect x="680" y="416" width="270" height="44" class="box real"/>
+  <text x="690" y="435" class="btxt" font-weight="700">Knowledge Graph</text><text x="690" y="451" class="bsub">networkx · cross-doc linkage (→Neo4j)</text>
+  <rect x="680" y="468" width="270" height="44" class="box real"/>
+  <text x="690" y="487" class="btxt" font-weight="700">Vector Store</text><text x="690" y="503" class="bsub">ChromaDB · offline embeddings</text>
+
+  <!-- LLM swap note -->
+  <rect x="30" y="548" width="940" height="52" rx="10" fill="#fff7e6" stroke="#e6c67a" stroke-width="1.5"/>
+  <text x="50" y="570" class="btxt" font-weight="700" fill="#7a5a12">Inference swap point (Stage 1 → Stage 2):</text>
+  <text x="50" y="588" class="bsub" fill="#7a5a12">Only the model call inside ReasoningAgent changes — offline synthesis by default; cloud API (EDGEAI_LLM=openai) for the demo; local Ollama for OSDHack. The rest of the platform is unaware which backend answered.</text>
+
+  <!-- Flows -->
+  <path class="flow" d="M500,110 L500,130"/>
+  <path class="flow" d="M500,176 L500,196"/>
+  <path class="flow" d="M420,248 L420,272"/>
+  <text x="426" y="264" class="flab">dispatch</text>
+  <path class="flow" d="M614,351 L660,351"/>
+  <text x="618" y="344" class="flab">read/write</text>
+  <path class="flow" d="M660,438 L614,410"/>
+  <text x="612" y="428" class="flab">query</text>
+
+  <text x="500" y="640" text-anchor="middle" class="bsub">Green = real &amp; tested (16/16 pytest) · Grey = supporting · Blue = platform core</text>
+</svg>
