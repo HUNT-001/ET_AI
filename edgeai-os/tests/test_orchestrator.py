@@ -15,7 +15,7 @@ def test_all_agents_registered():
     expected = {
         "ingestion", "knowledge", "maintenance", "compliance", "lessons_learned",
         "planner", "vision", "reasoning", "forecasting", "monitoring",
-        "reporting", "notification",
+        "reporting", "notification", "verifier",
     }
     assert names == expected
     assert len(REGISTRY) == len(PRIMARY_AGENTS) + len(SUPPORTING_AGENTS)
@@ -23,9 +23,13 @@ def test_all_agents_registered():
 
 def test_dispatch_returns_response():
     orch = Orchestrator()
-    response = orch.dispatch("ingestion", "ingest maintenance manual PDF")
-    assert response.agent_name == "ingestion"
-    assert "ingest maintenance manual PDF" in response.result
+    response = orch.dispatch("compliance", "check gas permit overlap")
+    assert response.agent_name == "compliance"
+    # ComplianceAgent is now real: it returns a structured gap report whose
+    # 'area' echoes the dispatched task, plus an evidence package.
+    assert isinstance(response.result, dict)
+    assert response.result["area"] == "check gas permit overlap"
+    assert "evidence_package" in response.result
 
 
 def test_handle_routes_and_dispatches():
@@ -37,8 +41,8 @@ def test_handle_routes_and_dispatches():
 
 def test_memory_persists_across_calls():
     orch = Orchestrator()
-    orch.dispatch("knowledge", "query one")
-    orch.dispatch("knowledge", "query two")
+    orch.dispatch("compliance", "task one")
+    orch.dispatch("compliance", "task two")
     recent = orch.memory.recent(2)
     assert len(recent) == 2
-    assert recent[0]["task"] == "query one"
+    assert recent[0]["task"] == "task one"
