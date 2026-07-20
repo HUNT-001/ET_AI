@@ -14,18 +14,29 @@ this roadmap is built against.
       `/orchestrate`, `/agents/dispatch`, `/memory`
 - [x] docker-compose for Postgres + Redis + Chroma
 - [x] Documentation set, including PS8 requirement mapping
+- [x] **Real ingestion pipeline**: PDF text extraction (pdfplumber) →
+      entity extraction (5 PS8 types, regex-based) → in-memory knowledge
+      graph (networkx) → vector store (Chroma, offline hashing embeddings)
+- [x] **Real retrieval**: `KnowledgeAgent` does hybrid search with
+      citations (source doc + page) and similarity-based confidence
+- [x] Tested end-to-end against a sample document (9/9 tests passing)
 
 ## Next — in priority order (enterprise-first, per current strategy)
 
-### 1. Make Ingestion + Knowledge Copilot real (highest leverage — do first)
-- [ ] Pick 2-3 real document types to support first: PDF + CSV/spreadsheet
-      + one P&ID sample — don't attempt all 5 source types before anything works
-- [ ] Wire `IngestionAgent` to real OCR (PaddleOCR) + entity extraction
-      tuned to the 5 named entity types (equipment tag, process parameter,
-      regulatory reference, personnel, date)
-- [ ] Stand up Neo4j, write real nodes/edges from ingested documents
-- [ ] Wire `KnowledgeAgent` to hybrid search (Chroma + keyword) + an LLM
-      (cloud API is fine for now) with mandatory inline citations
+### 1. Replace synthetic sample with real documents (do this first)
+- [ ] Source 2-3 real documents: a real OISD standard PDF, a real or
+      realistic P&ID, real (or realistically anonymized) maintenance logs
+- [ ] Re-run ingestion against them, sanity-check entity extraction —
+      the regex patterns were tuned on synthetic text and will need
+      adjustment for real document formatting quirks
+- [ ] Add OCR fallback (PaddleOCR) for any scanned/image-only PDFs —
+      current pipeline only handles text-native PDFs
+
+### 2. Wire real LLM synthesis into KnowledgeAgent
+- [ ] Currently extractive (returns top retrieved passage verbatim) —
+      swap in a real LLM call (cloud API for now, local later) that
+      synthesizes an answer from the top-k retrieved chunks with inline
+      citations, per the TODO in `agents/knowledge_agent.py`
 - [ ] Write the 8-10 benchmark questions from `docs/ProblemStatement.md`
       and start scoring answers against them
 

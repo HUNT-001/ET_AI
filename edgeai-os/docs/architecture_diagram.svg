@@ -1,0 +1,91 @@
+<svg viewBox="0 0 1020 800" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#3a4a63"/></marker>
+    <style>
+      .lyr{fill:#f4f7fb;stroke:#cdd8e6;stroke-width:1.5;rx:12}
+      .lt{fill:#1f3a5f;font-size:13px;font-weight:700}
+      .b{rx:8;stroke-width:1.4}
+      .bt{font-size:12px;fill:#12233b;font-weight:600}
+      .bs{font-size:9.5px;fill:#54657a}
+      .real{fill:#e7f6ec;stroke:#3fa564}
+      .core{fill:#e8eefc;stroke:#4a6fb5}
+      .supp{fill:#eef1f6;stroke:#9aa9bd}
+      .opt{fill:#fff4e0;stroke:#e0b64c}
+      .flow{stroke:#3a4a63;stroke-width:1.6;fill:none;marker-end:url(#arrow)}
+      .tag{font-size:9px;font-weight:700}
+    </style>
+  </defs>
+
+  <text x="510" y="28" text-anchor="middle" font-size="21" font-weight="700" fill="#12233b">EdgeAI-OS — Industrial Knowledge Intelligence Platform</text>
+  <text x="510" y="46" text-anchor="middle" font-size="12" fill="#54657a">Privacy-first, fully-local, self-verifying multi-agent runtime · PS8</text>
+
+  <!-- Clients -->
+  <rect x="150" y="62" width="220" height="40" class="b core"/><text x="260" y="80" text-anchor="middle" class="bt">Dashboard</text><text x="260" y="94" text-anchor="middle" class="bs">offline · zero outbound</text>
+  <rect x="400" y="62" width="220" height="40" class="b core"/><text x="510" y="80" text-anchor="middle" class="bt">MCP clients</text><text x="510" y="94" text-anchor="middle" class="bs">Claude Desktop · agents · IDEs</text>
+  <rect x="650" y="62" width="220" height="40" class="b core"/><text x="760" y="80" text-anchor="middle" class="bt">REST API consumers</text><text x="760" y="94" text-anchor="middle" class="bs">field / mobile tools</text>
+
+  <!-- Gateway -->
+  <rect x="150" y="120" width="720" height="40" class="b core"/><text x="510" y="140" text-anchor="middle" class="bt">FastAPI Gateway  ·  CORS  ·  /ask /plan /trace /ingest /agents  ·  MCP server (integrations/mcp_server.py)</text>
+
+  <!-- Runtime -->
+  <rect x="150" y="176" width="720" height="86" class="lyr"/>
+  <text x="166" y="196" class="lt">Execution Runtime</text>
+  <rect x="166" y="204" width="200" height="48" class="b core"/><text x="266" y="223" text-anchor="middle" class="bt">Orchestrator (native, default)</text><text x="266" y="240" text-anchor="middle" class="bs">router · planner · dispatch</text>
+  <rect x="376" y="204" width="150" height="48" class="b opt"/><text x="451" y="223" text-anchor="middle" class="bt">LangGraph</text><text x="451" y="240" text-anchor="middle" class="bs">opt-in StateGraph</text>
+  <rect x="536" y="204" width="150" height="48" class="b supp"/><text x="611" y="223" text-anchor="middle" class="bt">MemoryLayer</text><text x="611" y="240" text-anchor="middle" class="bs">working·short·long·incident</text>
+  <rect x="696" y="204" width="158" height="48" class="b supp"/><text x="775" y="220" text-anchor="middle" class="bt">Event Bus · Tracer</text><text x="775" y="235" text-anchor="middle" class="bs">reactive · observability</text>
+
+  <!-- Agents -->
+  <rect x="150" y="278" width="720" height="196" class="lyr"/>
+  <text x="166" y="298" class="lt">Agent Layer — shared AgentServices contract</text>
+  <text x="166" y="317" class="tag" fill="#2f7d4c">PRIMARY (PS8) — all real</text>
+  <g>
+    <rect x="166" y="324" width="132" height="44" class="b real"/><text x="232" y="343" text-anchor="middle" class="bt">Ingestion</text><text x="232" y="357" text-anchor="middle" class="bs">docs→graph+vec</text>
+    <rect x="306" y="324" width="132" height="44" class="b real"/><text x="372" y="343" text-anchor="middle" class="bt">Knowledge</text><text x="372" y="357" text-anchor="middle" class="bs">cited RAG</text>
+    <rect x="446" y="324" width="132" height="44" class="b real"/><text x="512" y="343" text-anchor="middle" class="bt">Maintenance</text><text x="512" y="357" text-anchor="middle" class="bs">RCA + risk</text>
+    <rect x="586" y="324" width="132" height="44" class="b real"/><text x="652" y="343" text-anchor="middle" class="bt">Compliance</text><text x="652" y="357" text-anchor="middle" class="bs">gap + evidence</text>
+    <rect x="726" y="324" width="128" height="44" class="b real"/><text x="790" y="343" text-anchor="middle" class="bt">LessonsLearned</text><text x="790" y="357" text-anchor="middle" class="bs">pattern mining</text>
+  </g>
+  <text x="166" y="390" class="tag" fill="#8a5a12">SUPERVISOR + REFLECTION — trust layer</text>
+  <rect x="166" y="396" width="240" height="40" class="b opt"/><text x="286" y="414" text-anchor="middle" class="bt">VerifierAgent (grounding check)</text><text x="286" y="428" text-anchor="middle" class="bs">strips uncited/ungrounded claims</text>
+  <rect x="416" y="396" width="200" height="40" class="b opt"/><text x="516" y="414" text-anchor="middle" class="bt">Reflection loop</text><text x="516" y="428" text-anchor="middle" class="bs">retry on low grounding</text>
+  <rect x="626" y="396" width="228" height="40" class="b opt"/><text x="740" y="414" text-anchor="middle" class="bt">Human-in-the-loop gate</text><text x="740" y="428" text-anchor="middle" class="bs">hold low-confidence for approval</text>
+  <text x="166" y="456" class="tag" fill="#5a6b80">SUPPORTING</text>
+  <g class="bs">
+    <rect x="166" y="461" width="108" height="30" class="b supp"/><text x="220" y="480" text-anchor="middle" class="bt">Planner</text>
+    <rect x="282" y="461" width="108" height="30" class="b supp"/><text x="336" y="480" text-anchor="middle" class="bt">Reasoning</text>
+    <rect x="398" y="461" width="108" height="30" class="b supp"/><text x="452" y="480" text-anchor="middle" class="bt">Forecasting</text>
+    <rect x="514" y="461" width="108" height="30" class="b supp"/><text x="568" y="480" text-anchor="middle" class="bt">Monitoring</text>
+    <rect x="630" y="461" width="100" height="30" class="b supp"/><text x="680" y="480" text-anchor="middle" class="bt">Reporting</text>
+    <rect x="738" y="461" width="116" height="30" class="b supp"/><text x="796" y="480" text-anchor="middle" class="bt">Notify · Vision</text>
+  </g>
+
+  <!-- Knowledge + Inference -->
+  <rect x="150" y="490" width="470" height="150" class="lyr"/>
+  <text x="166" y="510" class="lt">Knowledge Layer — real pipeline</text>
+  <rect x="166" y="518" width="438" height="34" class="b real"/><text x="176" y="539" class="bt">Hybrid retrieval — BM25 + vector (RRF fusion)</text>
+  <rect x="166" y="558" width="216" height="34" class="b real"/><text x="176" y="579" class="bt">Structure-aware chunking</text>
+  <rect x="388" y="558" width="216" height="34" class="b real"/><text x="398" y="579" class="bt">OCR (Tesseract) fallback</text>
+  <rect x="166" y="598" width="216" height="34" class="b real"/><text x="176" y="619" class="bt">Typed Knowledge Graph</text><text x="176" y="630" class="bs" font-size="8.5">networkx → Neo4j</text>
+  <rect x="388" y="598" width="216" height="34" class="b real"/><text x="398" y="619" class="bt">Vector store (ChromaDB)</text>
+
+  <rect x="636" y="490" width="234" height="150" class="lyr"/>
+  <text x="652" y="510" class="lt">Local Inference</text>
+  <rect x="652" y="518" width="202" height="52" class="b real"/><text x="753" y="538" text-anchor="middle" class="bt">Ollama — qwen2.5:7b</text><text x="753" y="553" text-anchor="middle" class="bs">100% GPU · 8k ctx · on-device</text>
+  <rect x="652" y="576" width="202" height="26" class="b real"/><text x="753" y="593" text-anchor="middle" class="bt">nomic-embed-text</text>
+  <rect x="652" y="608" width="202" height="24" class="b supp"/><text x="753" y="624" text-anchor="middle" class="bs">offline deterministic fallback</text>
+
+  <!-- privacy band -->
+  <rect x="150" y="656" width="720" height="40" rx="10" fill="#eaf6ef" stroke="#3fa564" stroke-width="1.5"/>
+  <text x="510" y="681" text-anchor="middle" class="bt" fill="#2f7d4c">Zero-trust edge: no outbound network calls · open-weights local models · full audit trail — enterprise-ready by design</text>
+
+  <!-- flows -->
+  <path class="flow" d="M510,102 L510,120"/>
+  <path class="flow" d="M510,160 L510,176"/>
+  <path class="flow" d="M510,262 L510,278"/>
+  <path class="flow" d="M385,474 L385,490"/>
+  <path class="flow" d="M700,474 L720,490"/>
+
+  <text x="510" y="724" text-anchor="middle" class="bs">Green = real &amp; tested (47/47 pytest) · Amber = trust/optional runtime · Blue = platform core · Grey = supporting</text>
+  <text x="510" y="742" text-anchor="middle" class="bs">Hybrid RAG · typed graph · Generator→Supervisor→Reflection · event-driven · observability · HITL · MCP · dual runtime</text>
+</svg>

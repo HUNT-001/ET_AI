@@ -37,17 +37,33 @@ the same hackathon) — we deliberately dropped `simulation_agent` and
 pivot needs them, they're a straightforward re-add following the same
 `BaseAgent` pattern.
 
-## Request Flow (current scaffold)
+## Request Flow (implemented)
+
+Two entry points:
 
 ```
-Client
-  → POST /orchestrate {task, payload}
-  → Orchestrator.route(task)          # picks matching agent(s)
-  → Orchestrator.dispatch(agent, ...)  # builds AgentRequest w/ shared memory context
-  → Agent.run(request)                 # returns AgentResponse
+Single-intent (POST /orchestrate {task, payload})
+  → Orchestrator.classify(task)        # intent classification → best-fit agent
+  → Orchestrator.dispatch(agent, ...)  # builds AgentRequest w/ AgentServices + memory context
+  → Agent.run(request)                 # may call other agents via request.services.invoke(...)
   → Orchestrator logs to MemoryLayer (short-term)
   → Client receives list[AgentResponse]
+
+Multi-step goal (POST /plan {task, payload})
+  → Orchestrator.dispatch("planner", goal)   # PlannerAgent → ordered [{agent, task, payload}]
+  → Orchestrator.plan_and_execute(...)        # runs each step, threading results through memory
+  → Client receives {goal, plan, results[]}
 ```
+
+**AgentServices** is the key contract: the Orchestrator injects a `services`
+handle (`invoke(agent, task, payload)` + shared `memory`) into every
+`AgentRequest`. Agents call one another *through* it rather than importing
+each other — so `MaintenanceAgent` gets `ForecastingAgent`/`MonitoringAgent`/
+`ReasoningAgent` output via `services.invoke(...)`, and logs incidents to
+`services.memory` that `LessonsLearnedAgent` later reads back. Routing,
+logging, and future cross-cutting concerns stay centralized in the
+Orchestrator. (Agents fall back to a local path when run without an
+Orchestrator, so they remain unit-testable in isolation.)
 
 Typical PS8 flow for a user question:
 ```
