@@ -44,8 +44,11 @@ def detect_anomalies(readings: list, z_threshold: float = 2.0) -> dict:
     score = round(min(1.0, max_z / 6.0), 3)  # 6σ → saturates at 1.0
 
     method = "zscore"
-    # Optional second opinion if sklearn is present and series is long enough.
-    if len(nums) >= 12:
+    # Second opinion: IsolationForest CORROBORATES z-score findings (extends the
+    # outlier list) but never creates an anomaly on its own — with
+    # contamination="auto" it flags "outliers" even in pure noise, so it must
+    # not be allowed to trip the alarm by itself.
+    if outliers and len(nums) >= 12:
         try:
             from sklearn.ensemble import IsolationForest  # type: ignore
 

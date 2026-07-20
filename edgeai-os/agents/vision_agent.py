@@ -1,13 +1,15 @@
 """
-VisionAgent — supports the Universal Document Ingestion pipeline
-(PS8: AI for Industrial Knowledge Intelligence)
+VisionAgent — P&ID parsing and engineering-drawing digitisation (PS8's
+"Computer Vision" suggested technology).
 
-PS8's suggested technologies explicitly include "Computer Vision (P&ID
-parsing, drawing digitisation)". This agent handles the visual/structural
-side of ingestion — parsing piping & instrumentation diagrams and scanned
-engineering drawings — while IngestionAgent handles text-centric OCR and
-entity extraction. IngestionAgent calls this agent for drawing-type inputs.
+REAL implementation (OpenCV + optional Tesseract OCR — see
+knowledge/pid_vision.py): detects equipment symbols (circles/rectangles) and
+piping lines, OCRs equipment tags, and writes the tags into the shared
+knowledge graph so drawing entities link with document entities (cross-modal
+linkage). Honest scope: tuned for clean digital P&IDs; legacy scans degrade.
 """
+
+from __future__ import annotations
 
 from agents.base import AgentRequest, AgentResponse, BaseAgent
 
@@ -15,20 +17,34 @@ from agents.base import AgentRequest, AgentResponse, BaseAgent
 class VisionAgent(BaseAgent):
     name = "vision"
     description = (
-        "P&ID parsing and engineering drawing digitisation — extracts "
-        "equipment symbols, tag numbers, and connectivity from piping & "
-        "instrumentation diagrams and scanned drawings for the ingestion "
-        "pipeline."
+        "P&ID / engineering-drawing digitisation — OpenCV symbol + piping-line "
+        "detection with OCR tag extraction; detected equipment tags feed the "
+        "shared knowledge graph for cross-modal linkage."
     )
-    tools: list[str] = ["pid_symbol_detector", "layout_parser", "ocr"]
+    tools: list[str] = ["opencv_symbol_detector", "hough_lines", "tesseract_ocr", "graph_write"]
 
     def run(self, request: AgentRequest) -> AgentResponse:
-        # TODO: real pipeline — symbol detection (fine-tuned YOLO on P&ID
-        # symbol library) + line/connectivity tracing + tag-number OCR ->
-        # structured output handed to IngestionAgent for graph construction.
+        path = request.payload.get("path")
+        if not path:
+            return AgentResponse(agent_name=self.name, result=None, confidence=0.0,
+                                 notes="No 'path' in payload — pass {'path': '/path/to/drawing.png'}.")
+        try:
+            from knowledge.pid_vision import ingest_pid
+            from knowledge.store import knowledge_graph
+
+            result = ingest_pid(path, knowledge_graph)
+        except ImportError as e:
+            return AgentResponse(agent_name=self.name, result=None, confidence=0.0,
+                                 notes=f"OpenCV not installed ({e}). pip install opencv-python-headless.")
+        except ValueError as e:
+            return AgentResponse(agent_name=self.name, result=None, confidence=0.0, notes=str(e))
+
+        tags = result["equipment_tags"]
+        conf = 0.9 if tags else (0.5 if result["symbols"]["circles"] + result["symbols"]["rectangles"] > 0 else 0.2)
         return AgentResponse(
             agent_name=self.name,
-            result=f"[stub] would parse drawing/P&ID for task='{request.task}'",
-            confidence=0.0,
-            notes="Stub — wire to P&ID symbol detection + OCR.",
+            result=result,
+            confidence=conf,
+            tool_calls=["opencv_symbol_detector", "hough_lines"] + (["tesseract_ocr"] if result["ocr_used"] else []),
+            notes=result["summary"],
         )
