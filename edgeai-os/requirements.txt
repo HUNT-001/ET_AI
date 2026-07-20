@@ -5,6 +5,8 @@
 fastapi
 uvicorn[standard]
 pydantic
+python-multipart   # file uploads (/ingest/upload)
+requests           # Ollama LLM + embedding calls
 
 # Data / ML core
 numpy
@@ -20,6 +22,14 @@ onnxruntime
 # Vector DB
 chromadb
 
+# Document ingestion pipeline
+pdfplumber        # PDF text extraction
+networkx          # in-memory knowledge graph (swap for Neo4j later)
+reportlab         # only used to generate the sample test PDF
+pytesseract       # OCR fallback for scanned PDFs (needs the Tesseract binary)
+Pillow            # image handling for OCR
+rank-bm25         # lexical BM25 half of hybrid retrieval (pure Python)
+
 # Databases
 sqlalchemy
 psycopg2-binary   # PostgreSQL driver
@@ -27,6 +37,10 @@ redis
 
 # Knowledge graph (client only — server runs via Docker)
 neo4j
+
+# Integrations (optional)
+# mcp[cli]        # expose EdgeAI-OS as an MCP server (integrations/mcp_server.py)
+# langgraph       # opt-in graph runtime (EDGEAI_RUNTIME=langgraph); native runtime is default
 
 # Dev tooling
 pytest
